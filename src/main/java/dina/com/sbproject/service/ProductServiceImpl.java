@@ -21,12 +21,20 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public void saveProduct(Product product) {
-        if (product.getCreatedAt() == null) {
+        if (product.getId() != null && productRepository.existsById(product.getId())) {
+            // Ensure the product is managed and updated
+            Product existingProduct = productRepository.findById(product.getId()).orElse(null);
+            if (existingProduct != null) {
+                product.setCreatedAt(existingProduct.getCreatedAt()); // Preserve created_at
+            }
+        } else {
             product.setCreatedAt(LocalDateTime.now());
         }
-        product.setUpdatedAt(LocalDateTime.now());
-        productRepository.save(product);
+        product.setUpdatedAt(LocalDateTime.now()); // Update timestamp
+        productRepository.saveAndFlush(product); // Persist changes
     }
+
+
 
 
     @Override

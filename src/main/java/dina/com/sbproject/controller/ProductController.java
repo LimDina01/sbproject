@@ -6,7 +6,6 @@ import dina.com.sbproject.service.ProductService;
 import dina.com.sbproject.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,117 +22,107 @@ public class ProductController {
     @Autowired
     private CategoryService categoryService;
 
+    // Serve the Add Product Page
     @RequestMapping("/add_product")
-    public String showAddProductForm(Model model) {
+    public String showAddProductForm(org.springframework.ui.Model model) {
         List<Category> categories = categoryService.findAllCategories();
         model.addAttribute("categories", categories);
         return "admin/add_product";
     }
 
+    // Add a new product
     @PostMapping("/add_product")
     @ResponseBody
     public ResponseEntity<String> addProduct(@RequestBody Product product) {
-        // Validate required fields
         if (product.getName() == null || product.getDescription() == null || product.getPrice() == null || product.getCategory() == null) {
             return ResponseEntity.badRequest().body("Missing required fields");
         }
 
-        // Validate and fetch the category
+        // Validate category
         Category category = categoryService.getCategoryById(product.getCategory().getId());
         if (category == null) {
             return ResponseEntity.badRequest().body("Invalid category ID");
         }
-
         product.setCategory(category);
 
-        // Save the product with timestamps
+        // Save the product
         productService.saveProduct(product);
-
         return ResponseEntity.ok("Product added successfully");
     }
 
-
-//    @PostMapping("/add_category")
-//    public String addCategory(@ModelAttribute Category category) {
-//        categoryService.saveCategory(category);
-//        return "redirect:/add_product";
-//    }
-
+    // Add a new category
     @PostMapping("/add_category")
     @ResponseBody
     public ResponseEntity<String> addCategory(@RequestBody Category category) {
+        if (category.getCategoryName() == null || category.getCategoryName().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Category name is required");
+        }
         categoryService.saveCategory(category);
         return ResponseEntity.ok("Category added successfully");
     }
 
-
+    // Get all products as JSON for frontend
     @GetMapping("/api/products")
     @ResponseBody
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
     }
 
-
-    // Show the edit form for a specific product
-    @GetMapping("/product/edit")
-    public String showEditProductForm(@RequestParam Long id, Model model) {
+    // Get a single product by ID
+    @GetMapping("/api/products/{id}")
+    @ResponseBody
+    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
         Product product = productService.getProductById(id);
-        List<Category> categories = categoryService.findAllCategories();
-        model.addAttribute("product", product);
-        model.addAttribute("categories", categories);
-        return "admin/edit_product";
+        if (product == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        return ResponseEntity.ok(product);
     }
 
-    // Handle the form submission to update the product
-    @PostMapping("/product/update")
-    public String updateProduct(
-            @RequestParam Long id,
-            @RequestParam String name,
-            @RequestParam String description,
-            @RequestParam BigDecimal price,
-            @RequestParam Long categoryId,
-            @RequestParam String imageUrl) {
+    @PutMapping("/api/products/update")
+    @ResponseBody
+    public ResponseEntity<String> updateProduct(@RequestBody Product updatedProduct) {
+        // Reject if the ID is missing or invalid
+        if (updatedProduct.getId() == null || updatedProduct.getId() <= 0) {
+            return ResponseEntity.badRequest().body("Invalid product ID for update");
+        }
 
-        Product product = productService.getProductById(id);
-        product.setName(name);
-        product.setDescription(description);
-        product.setPrice(price);
-        product.setImageUrl(imageUrl);
+        // Fetch the existing product
+        Product existingProduct = productService.getProductById(updatedProduct.getId());
+        if (existingProduct == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Product not found");
+        }
 
-        Category category = categoryService.getCategoryById(categoryId);
-        product.setCategory(category);
+        // Update fields
+        existingProduct.setName(updatedProduct.getName());
+        existingProduct.setDescription(updatedProduct.getDescription());
+        existingProduct.setPrice(updatedProduct.getPrice());
+        existingProduct.setImageUrl(updatedProduct.getImageUrl());
 
-        productService.saveProduct(product);
+        // Validate category
+        Category category = categoryService.getCategoryById(updatedProduct.getCategory().getId());
+        if (category == null) {
+            return ResponseEntity.badRequest().body("Invalid category ID");
+        }
+        existingProduct.setCategory(category);
 
-        return "redirect:/products";
+        // Save the updated product
+        productService.saveProduct(existingProduct);
+        return ResponseEntity.ok("Product updated successfully");
     }
 
-    // Handle product deletion with DELETE request
-//    @DeleteMapping("/product/delete")
-//    public String deleteProduct(@RequestParam Long id) {
-//        productService.deleteProductById(id);
-//        return "redirect:/products";
-//    }
-
-//    @DeleteMapping("/product/delete")
-//    public ResponseEntity<String> deleteProduct(@RequestParam Long id) {
-//        boolean isDeleted = productService.deleteProductById(id); // Assuming your service returns a boolean
-//
-//        if (isDeleted) {
-//            return ResponseEntity.noContent().build(); // 204 No Content
-//        } else {
-//            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Product not found"); // 404 Not Found
-//        }
-//    }
-
-@DeleteMapping("/product/delete")
-public ResponseEntity<String> deleteProduct(@RequestParam Long id) {
-    boolean isDeleted = productService.deleteProductById(id);
-
-    // Since we always return true now, we can assume success
-    return ResponseEntity.noContent().build(); // 204 No Content
-}
 
 
 
+    // Delete a product by ID
+    @DeleteMapping("/product/delete")
+    public ResponseEntity<String> deleteProduct(@RequestParam Long id) {
+        boolean isDeleted = productService.deleteProductById(id);
+
+        if (isDeleted) {
+            return ResponseEntity.noContent().build(); // 204 No Content
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Product not found");
+        }
+    }
 }
