@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head th:insert="admin/fragments/head.html :: head">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Management</title>
+
+    <!-- CSS Links -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/sweetalert2/11.7.32/sweetalert2.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar and Navbar -->
+    <div th:insert="admin/fragments/navba :: nav"></div>
+    <div class="main">
+        <nav class="navbar navbar-expand navbar-light navbar-bg">
+            <a class="sidebar-toggle js-sidebar-toggle">
+                <i class="hamburger align-self-center"></i>
+            </a>
+            <div class="navbar-collapse collapse">
+                <button class="btn btn-primary ms-auto" data-bs-toggle="modal" data-bs-target="#addProductModal">Add Product</button>
+            </div>
+        </nav>
+
+        <main class="content">
+            <h1 class="h3 mb-3">Product Management</h1>
+
+            <!-- Product Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Products List</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Price</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="productTableBody">
+                        <!-- Products will be dynamically loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+        <footer th:insert="admin/fragments/footer :: copy"></footer>
+    </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addProductForm" onsubmit="handleProductSubmit(event)">
+                    <div class="mb-3">
+                        <label for="productName" class="form-label">Product Name</label>
+                        <input type="text" class="form-control" id="productName" placeholder="Enter product name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="productDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="productDescription" rows="3" placeholder="Enter product description" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="productCategory" class="form-label">Category</label>
+                        <select class="form-select" id="productCategory" required>
+                            <option value="" disabled selected>Select a category</option>
+                            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.categoryName}"></option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="productPrice" class="form-label">Price</label>
+                        <input type="number" class="form-control" id="productPrice" step="0.01" placeholder="Enter product price" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="productImage" class="form-label">Image URL</label>
+                        <input type="url" class="form-control" id="productImage" placeholder="Enter image URL">
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Add New Category</label>
+                        <input type="text" class="form-control" id="categoryName" placeholder="Add a new category (optional)">
+                    </div>
+                    <button type="submit" class="btn btn-success" id="submitButton">Submit</button>
+                    <div id="spinner" class="spinner-border text-primary" style="display: none;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert2/11.7.32/sweetalert2.min.js"></script>
+
+<script>
+    // Load products from the server
+    function loadProducts() {
+        fetch("/api/products")
+            .then(response => response.json())
+            .then(products => {
+                const productTableBody = document.getElementById("productTableBody");
+                productTableBody.innerHTML = products.map((product, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${product.name}</td>
+                        <td>${product.category.categoryName}</td>
+                        <td>${product.price}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="editProduct(${product.id})">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${product.id})">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            })
+            .catch(error => console.error("Error loading products:", error));
+    }
+
+    // Handle product form submission
+    function handleProductSubmit(event) {
+        event.preventDefault();
+
+        const submitButton = document.getElementById("submitButton");
+        const spinner = document.getElementById("spinner");
+
+        submitButton.disabled = true;
+        spinner.style.display = 'inline-block';
+
+        const newCategoryName = document.getElementById("categoryName").value;
+        const categoryRequest = newCategoryName ? fetch("/add_category", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ categoryName: newCategoryName })
+        }) : Promise.resolve();
+
+        categoryRequest
+            .then(() => {
+                const productData = {
+                    name: document.getElementById("productName").value,
+                    description: document.getElementById("productDescription").value,
+                    price: parseFloat(document.getElementById("productPrice").value),
+                    category: { id: parseInt(document.getElementById("productCategory").value) },
+                    imageUrl: document.getElementById("productImage").value || null
+                };
+
+                return fetch("/add_product", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(productData)
+                });
+            })
+            .then(response => {
+                if (response.ok) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: "Product added successfully!",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Reset the form
+                    document.getElementById("addProductForm").reset();
+                    loadProducts();
+
+                    // Close the modal after a short delay
+                    setTimeout(() => {
+                        const modal = new bootstrap.Modal(document.getElementById("addProductModal"));
+                        modal.hide();
+                    }, 2000);
+                } else {
+                    return response.text().then(text => { throw new Error(text); });
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "An error occurred.",
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                console.error("Error adding product:", error);
+            })
+            .finally(() => {
+                submitButton.disabled = false;
+                spinner.style.display = 'none';
+            });
+    }
+
+    // Edit Product (Example)
+    function editProduct(productId) {
+        // Logic to load product data into a modal for editing
+    }
+
+    // Delete Product
+    function deleteProduct(productId) {
+        fetch(`/product/delete?id=${productId}`, { method: "DELETE" })
+            .then(response => {
+                if (response.ok) {
+                    // Success: Show SweetAlert2 success notification
+                    Swal.fire({
+                        icon: "success",
+                        title: "Deleted!",
+                        text: "Product has been successfully deleted.",
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Reload products list after deletion
+                    loadProducts();
+                } else {
+                    throw new Error("Failed to delete product.");
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Could not delete product. Please try again.",
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            });
+    }
+
+    // Initialize
+    document.addEventListener("DOMContentLoaded", () => {
+        loadProducts();
+    });
+</script>
+</body>
+</html>
