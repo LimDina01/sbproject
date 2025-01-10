@@ -125,4 +125,19 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Product not found");
         }
     }
+
+    @PutMapping("/api/products/{id}/status")
+    @ResponseBody
+    public ResponseEntity<String> updateProductStatus(@PathVariable Long id, @RequestParam String status) {
+        Product product = productService.getProductById(id);
+        if (product == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Product not found");
+        }
+
+        product.setStatus(status);
+        productService.saveProduct(product);
+        return ResponseEntity.ok("Product status updated successfully");
+    }
+
+
 }

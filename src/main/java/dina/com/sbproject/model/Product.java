@@ -24,6 +24,7 @@ public class Product {
 //    private Long categoryId;
 
     private String imageUrl;
+    private String status; // Values can be 'enable' or 'disable'
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -79,6 +80,16 @@ public class Product {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public LocalDateTime getCreatedAt() {
